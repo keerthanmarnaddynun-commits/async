@@ -1,12 +1,13 @@
 """Local air-gapped data ingestion layer for SovereignOps.
 
-Provides local mock telemetry ingestion without any network egress.
+Provides local mock telemetry ingestion and Markdown runbook ingestion
+without any network egress.
 """
 
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 # Configure structured local logging
 logging.basicConfig(
@@ -17,8 +18,10 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 RAW_DATA_DIR = BASE_DIR / "raw_data"
+DATA_DIR = RAW_DATA_DIR
 ALERTS_DIR = RAW_DATA_DIR / "alerts"
 SYSLOGS_DIR = RAW_DATA_DIR / "syslogs"
+RUNBOOKS_DIR = DATA_DIR / "runbooks"
 
 MOCK_ALERT_ID = "INC-8891"
 MOCK_SERVICE = "api-gateway-01"
@@ -38,11 +41,25 @@ MOCK_SYSLOG_DATA = (
     "Sep 23 19:30:01 api-gateway-01 systemd[1]: gateway-proxy.service: Main process exited, code=exited, status=1/FAILURE\n"
 )
 
+MOCK_RUNBOOK_DATA = (
+    "# RB-089: Auth-Service Timeout Recovery\n"
+    "**Service:** auth-service\n"
+    "**Risk Tier:** High (Tier-2)\n\n"
+    "## Symptoms\n"
+    "- API Gateway throws HTTP 503 errors.\n"
+    "- `gateway-proxy` logs show upstream timeouts.\n\n"
+    "## Remediation Steps\n"
+    "If the authentication cache is locked or the recent deployment introduced a bottleneck, "
+    "execute a rollback of the deployment to the previous stable tag.\n"
+    "Command: `kubectl rollout undo deployment/auth-service`\n"
+)
+
 
 def setup_mock_data() -> None:
-    """Ensure raw_data directories and sample telemetry files exist."""
+    """Ensure raw_data directories and sample telemetry/runbook files exist."""
     ALERTS_DIR.mkdir(parents=True, exist_ok=True)
     SYSLOGS_DIR.mkdir(parents=True, exist_ok=True)
+    RUNBOOKS_DIR.mkdir(parents=True, exist_ok=True)
 
     alert_file = ALERTS_DIR / f"{MOCK_ALERT_ID}.json"
     if not alert_file.exists():
@@ -55,6 +72,12 @@ def setup_mock_data() -> None:
         logger.info(f"Creating mock syslog file at {syslog_file}")
         with open(syslog_file, "w", encoding="utf-8") as f:
             f.write(MOCK_SYSLOG_DATA)
+
+    runbook_file = RUNBOOKS_DIR / "RB-089.md"
+    if not runbook_file.exists():
+        logger.info(f"Creating mock runbook file at {runbook_file}")
+        with open(runbook_file, "w", encoding="utf-8") as f:
+            f.write(MOCK_RUNBOOK_DATA)
 
 
 def ingest_incident_data(alert_id: str) -> Dict[str, Any]:
@@ -93,7 +116,30 @@ def ingest_incident_data(alert_id: str) -> Dict[str, Any]:
     }
 
 
+def ingest_all_runbooks() -> List[Dict[str, str]]:
+    """Iterate over all .md files in RUNBOOKS_DIR and extract their content.
+
+    Returns:
+        List of dicts with keys 'runbook_id' (filename without ext) and 'content'.
+    """
+    if not RUNBOOKS_DIR.exists():
+        return []
+
+    runbooks: List[Dict[str, str]] = []
+    for runbook_path in sorted(RUNBOOKS_DIR.glob("*.md")):
+        with open(runbook_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        runbooks.append({
+            "runbook_id": runbook_path.stem,
+            "content": content,
+        })
+    return runbooks
+
+
 if __name__ == "__main__":
     setup_mock_data()
-    payload = ingest_incident_data("INC-8891")
-    print(json.dumps(payload, indent=2))
+    incident_payload = ingest_incident_data("INC-8891")
+    print(json.dumps(incident_payload, indent=2))
+
+    runbooks_payload = ingest_all_runbooks()
+    print(json.dumps(runbooks_payload, indent=2))
