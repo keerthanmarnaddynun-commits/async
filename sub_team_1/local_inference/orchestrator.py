@@ -54,14 +54,15 @@ TIER_2_SCHEMA: Dict[str, Any] = {
 }
 
 
-def run_triage_loop(alert_id: str) -> Dict[str, Any]:
+def run_triage_loop(alert_id: str, verbose: bool = True) -> Dict[str, Any]:
     """Execute two-step triage reasoning loop (Tier-1 diagnostic then Tier-2 remediation).
 
     Args:
         alert_id: Identifier of the alert to ingest and triage.
+        verbose: Whether to log and print raw JSON payloads. Defaults to True.
 
     Returns:
-        Dict containing diagnostic and remediation decisions.
+        Dict containing diagnostic and remediation decisions, plus context.
     """
     # Step 1: Ingest alert, syslog, runbooks, and graph context (Contract B)
     incident_data = ingest_incident_data(alert_id)
@@ -77,7 +78,8 @@ def run_triage_loop(alert_id: str) -> Dict[str, Any]:
         graph_context = json.load(f)
 
     # Step 2: Diagnostic Pass (Tier-1)
-    logger.info("[Phase 1: Diagnostics]")
+    if verbose:
+        logger.info("[Phase 1: Diagnostics]")
     diagnostic_prompt = (
         "You are an autonomous air-gapped site reliability engineering agent.\n"
         "Investigate the service crash based ONLY on the alert and syslog telemetry.\n\n"
@@ -90,8 +92,9 @@ def run_triage_loop(alert_id: str) -> Dict[str, Any]:
     payload_diag = diagnostic_decision.get("payload", {})
     command_diag = payload_diag.get("command", "")
     target_diag = payload_diag.get("target_node", "")
-    logger.info(f"Simulated tool call: command='{command_diag}' on target_node='{target_diag}'")
-    print(json.dumps(diagnostic_decision, indent=2), flush=True)
+    if verbose:
+        logger.info(f"Simulated tool call: command='{command_diag}' on target_node='{target_diag}'")
+        print(json.dumps(diagnostic_decision, indent=2), flush=True)
 
     # Match relevant runbook from provenance matches if available
     matched_runbook = None
@@ -106,7 +109,8 @@ def run_triage_loop(alert_id: str) -> Dict[str, Any]:
         matched_runbook = runbooks[0].get("content")
 
     # Step 3: Remediation Pass (Tier-2)
-    logger.info("[Phase 2: Remediation]")
+    if verbose:
+        logger.info("[Phase 2: Remediation]")
     remediation_prompt = (
         "You are an autonomous air-gapped site reliability engineering agent.\n"
         "Determine the remediation action based on the infrastructure graph mapping (Contract B) and retrieved runbook.\n\n"
@@ -120,13 +124,18 @@ def run_triage_loop(alert_id: str) -> Dict[str, Any]:
     command_rem = payload_rem.get("command", "")
     target_rem = payload_rem.get("target_node", "")
     justification_rem = payload_rem.get("justification", "")
-    logger.info(
-        f"Proposed remediation: command='{command_rem}' on target_node='{target_rem}' "
-        f"(justification: {justification_rem})"
-    )
-    print(json.dumps(remediation_decision, indent=2), flush=True)
+    if verbose:
+        logger.info(
+            f"Proposed remediation: command='{command_rem}' on target_node='{target_rem}' "
+            f"(justification: {justification_rem})"
+        )
+        print(json.dumps(remediation_decision, indent=2), flush=True)
 
     return {
+        "alert_id": alert_id,
+        "telemetry": incident_data,
+        "graph_context": graph_context,
+        "matched_runbook": matched_runbook,
         "diagnostic": diagnostic_decision,
         "remediation": remediation_decision,
     }
