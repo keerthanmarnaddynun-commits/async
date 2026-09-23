@@ -1,0 +1,4 @@
+Sep 23 19:29:45 api-gateway-01 systemd[1]: Starting API Gateway...
+Sep 23 19:29:50 api-gateway-01 gateway-proxy[4432]: [WARN] Connection pool reaching capacity
+Sep 23 19:30:00 api-gateway-01 gateway-proxy[4432]: [ERROR] HTTP 503 Service Unavailable - upstream auth-service timeout
+Sep 23 19:30:01 api-gateway-01 systemd[1]: gateway-proxy.service: Main process exited, code=exited, status=1/FAILURE
