@@ -1,0 +1,10 @@
+Sep 23 18:41:02 payments-01 payment-svc[3871]: [INFO] Starting Payment-Service v1.8.5
+Sep 23 18:41:05 payments-01 payment-svc[3871]: [INFO] Connected to Stripe gateway (region: us-east-1)
+Sep 23 18:42:11 payments-01 payment-svc[3871]: [INFO] POST /api/v1/payments 200 OK 88ms txn_id=txn_7f3a2c amount=49.99 currency=USD client=10.0.3.113
+Sep 23 18:43:28 payments-01 payment-svc[3871]: [INFO] POST /api/v1/payments 200 OK 71ms txn_id=txn_8d4b1e amount=129.00 currency=USD client=10.0.5.161
+Sep 23 18:44:55 payments-01 payment-svc[3871]: [INFO] POST /api/v1/payments 200 OK 95ms txn_id=txn_9c6e4f amount=19.99 currency=USD client=10.0.2.23
+Sep 23 18:46:03 payments-01 payment-svc[3871]: [INFO] GET /healthz 200 OK 3ms status=healthy db_pool=12/50
+Sep 23 18:47:30 payments-01 payment-svc[3871]: [INFO] POST /api/v1/payments 200 OK 62ms txn_id=txn_a1d7c2 amount=75.50 currency=USD client=10.0.4.101
+Sep 23 18:49:18 payments-01 payment-svc[3871]: [INFO] POST /api/v1/payments 200 OK 80ms txn_id=txn_b2e8d3 amount=310.00 currency=USD client=10.0.5.148
+Sep 23 18:51:44 payments-01 payment-svc[3871]: [INFO] POST /api/v1/refunds 200 OK 112ms txn_id=txn_c3f9e4 refund_amount=49.99 client=10.0.3.100
+Sep 23 18:53:22 payments-01 payment-svc[3871]: [INFO] GET /metrics 200 OK 8ms requests_total=482 success_rate=100.0% avg_latency=81ms

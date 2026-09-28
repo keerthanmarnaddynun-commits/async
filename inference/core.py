@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import Any, Dict
 
 # Ensure project root is in sys.path for direct script execution
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from sub_team_1.data_ingestion.ingest import ingest_incident_data
-from sub_team_1.local_inference.llm_client import query_local_llm
+from data.ingest import ingest_incident_data
+from inference.llm_client import query_local_llm
 
 logging.basicConfig(
     level=logging.INFO,

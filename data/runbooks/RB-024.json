@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-024",
+  "title": "Redis Cache Eviction Storm — High Memory Pressure",
+  "symptom": "Cache hit rate drops below 40%; Redis logs show 'maxmemory-policy allkeys-lru' evictions at high rate; downstream services reporting cache misses and increased DB load.",
+  "recommended_action": "redis-cli CONFIG SET maxmemory 4gb && kubectl rollout restart deployment/redis",
+  "remediation_steps": [
+    "Check Redis memory stats: redis-cli INFO memory | grep used_memory_human",
+    "Inspect eviction count: redis-cli INFO stats | grep evicted_keys",
+    "Increase maxmemory limit: redis-cli CONFIG SET maxmemory 4gb",
+    "Review eviction policy: redis-cli CONFIG SET maxmemory-policy allkeys-lfu",
+    "If cluster, rebalance shards: redis-cli --cluster rebalance <host>:<port>"
+  ],
+  "confidence": 0.85,
+  "prior_successes": 22
+}

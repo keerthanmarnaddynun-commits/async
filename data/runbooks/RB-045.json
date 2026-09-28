@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-045",
+  "title": "Kafka Consumer Lag — Message Queue Backpressure",
+  "symptom": "Consumer group lag exceeds 100k messages; end-to-end processing latency degrades; producer-side timeouts appearing in application logs.",
+  "recommended_action": "kubectl scale deployment/<consumer-service> --replicas=6",
+  "remediation_steps": [
+    "Check consumer group lag: kafka-consumer-groups.sh --bootstrap-server <broker> --describe --group <group-id>",
+    "Identify lagging partitions and consumers",
+    "Scale consumer deployment: kubectl scale deployment/<consumer-service> --replicas=6",
+    "If lag is from dead consumers, reset offsets to latest: kafka-consumer-groups.sh --bootstrap-server <broker> --group <group> --reset-offsets --to-latest --execute --topic <topic>",
+    "Monitor lag recovery: watch kafka-consumer-groups.sh --bootstrap-server <broker> --describe --group <group-id>"
+  ],
+  "confidence": 0.82,
+  "prior_successes": 15
+}

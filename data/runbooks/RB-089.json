@@ -1,0 +1,78 @@
+{
+  "runbook_id": "RB-089",
+  "title": "Auth-Service Connection Pool Exhaustion & Upstream Timeout Recovery",
+  "confidence": 0.94,
+  "prior_successes": 12,
+  "recommended_action": "kubectl rollout undo deployment/auth-service",
+  "metadata": {
+    "author": "Core Infrastructure & Reliability Engineering Team",
+    "version": "2.4.1",
+    "last_updated": "2026-09-24T14:15:00Z",
+    "tier_level": "Tier-2 (Production Remediations)",
+    "severity_threshold": "CRITICAL / P1",
+    "service": "auth-service",
+    "affected_upstream": [
+      "api-gateway-01",
+      "api-gateway-02",
+      "web-ingress"
+    ]
+  },
+  "incident_context": {
+    "summary": "During high throughput periods or following a bad release tag deployment, the auth-service connection pool saturates, triggering cascading HTTP 503 Service Unavailable errors across api-gateway-01 instances.",
+    "architecture_overview": "Clients connect via Envoy/Nginx api-gateway-01 proxies which dispatch bearer token validation requests over connection pools to the internal auth-service deployment in Kubernetes namespace 'core-services'."
+  },
+  "known_symptoms": [
+    "HTTP 503 Service Unavailable spikes on api-gateway-01",
+    "Syslog warnings: '[WARN] Connection pool reaching capacity' followed by '[ERROR] HTTP 503 Service Unavailable - upstream auth-service timeout'",
+    "Gateway-proxy main process failure or high egress latency (>5000ms)",
+    "Auth-service pod restarts or readiness probe failures"
+  ],
+  "pager_alerts": [
+    "Gateway5xxRateExceeded",
+    "AuthServiceLatencyCritical",
+    "UpstreamConnectionPoolExhausted"
+  ],
+  "diagnostics": [
+    {
+      "step": 1,
+      "description": "Inspect gateway proxy syslogs for timeout patterns",
+      "command": "journalctl -u gateway-proxy -n 50"
+    },
+    {
+      "step": 2,
+      "description": "Verify auth-service pod status and rollout history in Kubernetes",
+      "command": "kubectl rollout status deployment/auth-service -n core-services"
+    },
+    {
+      "step": 3,
+      "description": "Check connection pool saturation metrics",
+      "command": "curl -s localhost:9090/metrics | grep auth_pool_active_connections"
+    }
+  ],
+  "remediation_steps": [
+    {
+      "step": 1,
+      "action": "Autonomous or Operator Rollback",
+      "command": "kubectl rollout undo deployment/auth-service",
+      "description": "Revert the auth-service deployment to the previous stable revision tag."
+    },
+    {
+      "step": 2,
+      "action": "Restart Gateway Proxy Service if process crashed",
+      "command": "systemctl restart gateway-proxy",
+      "description": "Ensure gateway proxy restarts with clean connection pool allocations."
+    },
+    {
+      "step": 3,
+      "action": "Post-Remediation Verification",
+      "command": "kubectl get pods -l app=auth-service -o wide",
+      "description": "Confirm all replaced pods transition to 1/1 Running state."
+    }
+  ],
+  "escalation_contacts": {
+    "primary_oncall": "sre-core-oncall@sovereignops.internal",
+    "secondary_escalation": "sec-ops-lead@sovereignops.internal",
+    "pagerduty_service_key": "PD-AUTH-SVC-098",
+    "slack_channel": "#incident-room-p1"
+  }
+}

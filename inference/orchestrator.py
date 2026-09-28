@@ -13,18 +13,18 @@ from pathlib import Path
 from typing import Any, Dict
 
 # Ensure project root and current directory are on sys.path for direct script execution
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOCAL_DIR = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 if str(LOCAL_DIR) not in sys.path:
     sys.path.insert(0, str(LOCAL_DIR))
 
-from sub_team_1.data_ingestion.ingest import (
+from data.ingest import (
     ingest_all_runbooks,
     ingest_incident_data,
 )
-from llm_client import query_local_llm
+from inference.core import query_local_llm
 
 logging.basicConfig(
     level=logging.INFO,

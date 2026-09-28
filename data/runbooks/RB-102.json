@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-102",
+  "title": "Secrets Manager Rotation Failure — Service Auth Token Expiry",
+  "symptom": "Services returning 401 Unauthorized after scheduled secret rotation; logs show 'invalid token' or 'signature verification failed'; Vault/AWS Secrets Manager rotation job marked as FAILED.",
+  "recommended_action": "kubectl rollout restart deployment/<service-name> && vault write -force auth/token/renew-self",
+  "remediation_steps": [
+    "Identify failed rotation: vault list secret/data/ && aws secretsmanager list-secrets --filter Key=tag-key,Values=rotation-failed",
+    "Force re-rotation in Vault: vault write -force secret/data/<path>",
+    "Update Kubernetes secret from new value: kubectl create secret generic <name> --from-literal=token=<new-value> --dry-run=client -o yaml | kubectl apply -f -",
+    "Restart affected deployments to pick up new secret: kubectl rollout restart deployment/<service-name>",
+    "Verify: kubectl exec <pod> -- env | grep TOKEN"
+  ],
+  "confidence": 0.84,
+  "prior_successes": 6
+}

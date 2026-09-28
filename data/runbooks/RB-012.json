@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-012",
+  "title": "Database Connection Pool Exhaustion — PostgreSQL",
+  "symptom": "Application logs show 'too many connections'; pg_stat_activity shows max_connections saturated; latency spikes across all DB-dependent services.",
+  "recommended_action": "systemctl restart pgbouncer && kubectl rollout restart deployment/<db-client-service>",
+  "remediation_steps": [
+    "Check active connections: psql -c 'SELECT count(*) FROM pg_stat_activity;'",
+    "Identify top connection holders: psql -c 'SELECT usename, count(*) FROM pg_stat_activity GROUP BY usename ORDER BY count DESC;'",
+    "Terminate idle connections: psql -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = \\'idle\\' AND query_start < now() - interval \\'5 min\\';'",
+    "Restart PgBouncer: systemctl restart pgbouncer",
+    "Scale connection pooler: kubectl scale deployment/pgbouncer --replicas=3"
+  ],
+  "confidence": 0.88,
+  "prior_successes": 19
+}

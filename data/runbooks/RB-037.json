@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-037",
+  "title": "Ingress Controller Certificate Expiry — TLS 502/525 Errors",
+  "symptom": "Clients report ERR_CERT_DATE_INVALID or TLS handshake failures; Nginx/Envoy access logs show 525 SSL Handshake Failed; cert-manager alerts firing for expired certificate.",
+  "recommended_action": "kubectl delete secret <tls-secret-name> -n <namespace> && kubectl annotate certificate <cert-name> cert-manager.io/issue-temporary-certificate=true",
+  "remediation_steps": [
+    "Identify expiring certificates: kubectl get certificates -A | grep False",
+    "Force cert-manager renewal: kubectl annotate certificate <name> cert-manager.io/issue-temporary-certificate=true --overwrite",
+    "Delete stale TLS secret to force re-issue: kubectl delete secret <tls-secret> -n <namespace>",
+    "Watch renewal: kubectl describe certificaterequest <name> -n <namespace>",
+    "Verify: openssl s_client -connect <domain>:443 | openssl x509 -noout -dates"
+  ],
+  "confidence": 0.93,
+  "prior_successes": 27
+}

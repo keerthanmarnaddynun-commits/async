@@ -1,0 +1,16 @@
+{
+  "runbook_id": "RB-058",
+  "title": "Disk I/O Saturation — Node Storage Pressure",
+  "symptom": "Node disk utilization >90%; pods entering Evicted state; kubelet logs showing 'eviction threshold has been met'; write latencies >500ms on persistent volumes.",
+  "recommended_action": "kubectl drain <node-name> --ignore-daemonsets && journalctl --vacuum-size=500M",
+  "remediation_steps": [
+    "Identify saturated node: kubectl describe node <node-name> | grep -A10 Conditions",
+    "Check disk usage on node: df -h && du -sh /var/lib/docker/*",
+    "Prune Docker/containerd unused layers: crictl rmi --prune",
+    "Vacuum old journal logs: journalctl --vacuum-size=500M",
+    "If persistent, drain and reschedule: kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data",
+    "Expand PVC if applicable: kubectl patch pvc <pvc-name> -p '{\"spec\":{\"resources\":{\"requests\":{\"storage\":\"50Gi\"}}}}'"
+  ],
+  "confidence": 0.87,
+  "prior_successes": 11
+}
