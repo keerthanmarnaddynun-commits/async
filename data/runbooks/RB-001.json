@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-001",
+  "title": "Node Out-of-Memory (OOMKilled) Pod Recovery",
+  "symptom": "Pods in CrashLoopBackOff with OOMKilled exit reason; node memory pressure alerts firing.",
+  "recommended_action": "kubectl rollout restart deployment/<service-name>",
+  "remediation_steps": [
+    "Identify OOMKilled pods: kubectl get pods --field-selector=status.phase=Failed -o wide",
+    "Inspect memory limits: kubectl describe pod <pod-name> | grep -A5 Limits",
+    "Patch resource limits: kubectl set resources deployment/<name> --limits=memory=512Mi",
+    "Restart deployment: kubectl rollout restart deployment/<name>",
+    "Verify: kubectl get pods -w"
+  ],
+  "confidence": 0.91,
+  "prior_successes": 34
+}

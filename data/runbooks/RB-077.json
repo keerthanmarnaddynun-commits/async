@@ -1,0 +1,16 @@
+{
+  "runbook_id": "RB-077",
+  "title": "CPU Throttling — HPA Not Scaling Fast Enough",
+  "symptom": "CPU throttling >80% on pods; HPA at max replica count but p99 latency still degraded; requests queuing in load balancer; 504 Gateway Timeout errors appearing.",
+  "recommended_action": "kubectl patch hpa <hpa-name> -p '{\"spec\":{\"maxReplicas\":20}}'",
+  "remediation_steps": [
+    "Check HPA status: kubectl get hpa -n <namespace>",
+    "Check current CPU throttling: kubectl top pods -n <namespace>",
+    "Temporarily raise maxReplicas: kubectl patch hpa <hpa-name> -p '{\"spec\":{\"maxReplicas\":20}}'",
+    "Reduce CPU request to allow more scheduling: kubectl set resources deployment/<name> --requests=cpu=100m",
+    "Review VPA recommendations: kubectl describe vpa <vpa-name> -n <namespace>",
+    "Long-term: tune targetCPUUtilizationPercentage lower (e.g., 60%)"
+  ],
+  "confidence": 0.79,
+  "prior_successes": 8
+}

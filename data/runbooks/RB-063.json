@@ -1,0 +1,15 @@
+{
+  "runbook_id": "RB-063",
+  "title": "DNS Resolution Failures — CoreDNS Pod Crash",
+  "symptom": "Services unable to resolve internal cluster DNS names; intermittent NXDOMAIN errors in application logs; CoreDNS pods in CrashLoopBackOff in kube-system namespace.",
+  "recommended_action": "kubectl rollout restart deployment/coredns -n kube-system",
+  "remediation_steps": [
+    "Check CoreDNS pod status: kubectl get pods -n kube-system -l k8s-app=kube-dns",
+    "Inspect crash logs: kubectl logs -n kube-system -l k8s-app=kube-dns --tail=100",
+    "Restart CoreDNS: kubectl rollout restart deployment/coredns -n kube-system",
+    "Verify resolution from test pod: kubectl run dnstest --image=busybox --restart=Never -- nslookup kubernetes.default",
+    "If persistent, inspect ConfigMap: kubectl describe configmap coredns -n kube-system"
+  ],
+  "confidence": 0.96,
+  "prior_successes": 41
+}

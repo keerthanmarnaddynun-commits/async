@@ -1,0 +1,19 @@
+{
+  "alert_id": "INC-8891",
+  "traced_root_cause": {
+    "node_id": "auth-service",
+    "criticality_pagerank_score": 0.87,
+    "path_from_trigger": [
+      "api-gateway-01",
+      "auth-service"
+    ]
+  },
+  "provenance_memory_matches": [
+    {
+      "runbook_id": "RB-089",
+      "historical_fix": "Roll back auth-service deployment to previous tag.",
+      "provenance_confidence": 0.94,
+      "prior_success_count": 12
+    }
+  ]
+}

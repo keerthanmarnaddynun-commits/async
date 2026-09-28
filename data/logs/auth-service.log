@@ -1,0 +1,9 @@
+Sep 23 19:28:10 auth-01 auth-service[5521]: [INFO] Initializing Auth-Service v2.4.2 (New Release)
+Sep 23 19:28:14 auth-01 auth-service[5521]: [INFO] Loaded JWT signing keys from vault (kid=auth-prod-2026-a)
+Sep 23 19:28:18 auth-01 auth-service[5521]: [INFO] PostgreSQL connection pool initialized (max=50, min=10)
+Sep 23 19:28:45 auth-01 auth-service[5521]: [INFO] POST /api/v1/auth/token 200 OK 42ms grant_type=client_credentials client=10.0.5.161
+Sep 23 19:29:02 auth-01 auth-service[5521]: [INFO] POST /api/v1/auth/token 200 OK 38ms grant_type=password client=10.0.4.120
+Sep 23 19:29:18 auth-01 auth-service[5521]: [INFO] GET /api/v1/users/profile 200 OK 29ms user_id=usr_8821 client=10.0.2.89
+Sep 23 19:29:35 auth-01 auth-service[5521]: [INFO] POST /api/v1/auth/token 200 OK 51ms grant_type=refresh_token client=10.0.3.100
+Sep 23 19:29:52 auth-01 auth-service[5521]: [WARN] PostgreSQL connection pool reaching capacity (45/50 active)
+Sep 23 19:30:00 auth-01 auth-service[5521]: [ERROR] ConnectionPoolExhaustedException: Timeout waiting for database connection. Dropping traffic.
