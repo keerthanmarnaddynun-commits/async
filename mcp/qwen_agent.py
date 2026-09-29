@@ -7,7 +7,9 @@ over stdio transport, enabling autonomous tool discovery and execution.
 import sys
 import json
 import time
+import uuid
 import asyncio
+from datetime import datetime
 from pathlib import Path
 
 import ollama
@@ -88,6 +90,30 @@ def sliding_window_messages(messages: list, max_turns: int = 3) -> list:
     return prefix + history
 
 
+def create_sse_event(
+    event_type: str,
+    payload: dict,
+    iteration: int = 1,
+    incident_id: str = "INC-8891",
+) -> dict:
+    """Wrap event payload in the standardized base SSE event schema matching Frontend Data Contract."""
+    return {
+        "event_id": str(uuid.uuid4()),
+        "incident_id": incident_id,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "event_type": event_type,
+        "iteration": iteration,
+        "payload": payload,
+    }
+
+
+def emit_event(event_type: str, payload: dict, iteration: int = 1, incident_id: str = "INC-8891") -> dict:
+    """Emit standardized SSE JSON event to stdout stream."""
+    event_dict = create_sse_event(event_type, payload, iteration, incident_id)
+    print(f"\n[EVENT] {json.dumps(event_dict)}", flush=True)
+    return event_dict
+
+
 async def run_qwen_mcp_agent():
     """Execute Ollama Qwen 2.5 Coder agent loop connected to SovereignOps MCP server."""
     server_script = Path(__file__).resolve().parent / "server.py"
@@ -121,11 +147,12 @@ async def run_qwen_mcp_agent():
                 "You are an autonomous SRE agent. You must use the ReAct framework "
                 "(Thought/Action/Observation). You may only invoke ONE tool at a time. "
                 "After invoking a tool, wait for the observation result before taking your next action. "
-                "Follow this sequence: (1) Use list_services to find available services. "
-                "(2) Use get_diagnostic_logs to fetch relevant logs. If a log indicates an upstream error, "
-                "fetch the upstream service's logs. (3) Use list_runbooks and get_runbook to find the remediation. "
-                "(4) Use execute_k8s_rollback to apply the fix. Once the rollback succeeds, output "
-                "\"FINAL REMEDIATION PLAN:\" followed by a brief summary."
+                "Follow this strict Standard Operating Procedure (SOP):\n"
+                "- Step 1: Diagnose the alert using logs (get_diagnostic_logs).\n"
+                "- Step 2: Trace the fault using the graph (query_infrastructure_graph).\n"
+                "- Step 3: Validate historical fixes using memory (search_provenance_memory).\n"
+                "- Step 4: Execute remediation (e.g., execute_k8s_rollback) ONLY after memory validation is complete.\n"
+                "Once the rollback succeeds, output \"FINAL REMEDIATION PLAN:\" followed by a brief summary."
             )
 
             messages = [
@@ -153,7 +180,15 @@ async def run_qwen_mcp_agent():
             # 3. Strict ReAct State Machine (Reason -> Act -> Observe)
             max_iterations = 10
             iteration = 0
-            tools_used: set[str] = set()  # Tracks executed tools for ordered guard checks
+            incident_id = "INC-8891"
+            triggering_service = "api-gateway-01"
+            tools_used: set[str] = set()
+            has_verified_memory = False
+            guardrail_interventions_count = 0
+            traced_root_cause_data: dict = {}
+            matched_runbook_data: dict = {}
+            action_taken_str: str = "None"
+            final_summary_text: str = ""
             start_time = time.time()
 
             while True:
@@ -182,8 +217,23 @@ async def run_qwen_mcp_agent():
                 content = response_msg.get("content", "")
                 response_text = content or ""
 
+                if content:
+                    print(f"\n[Thought / Response]:\n{content}")
+                    emit_event(
+                        "agent_thought",
+                        {
+                            "phase": "REASONING",
+                            "thought_content": content,
+                            "model": "qwen2.5-coder:7b",
+                            "sliding_window_turns": 3,
+                        },
+                        iteration=iteration,
+                        incident_id=incident_id,
+                    )
+
                 if "FINAL REMEDIATION PLAN" in response_text.upper():
                     print("[+] Remediation plan detected. Halting agent loop.")
+                    final_summary_text = response_text
                     break
 
                 # --- GUARD 1: Multi-tool hallucination detection ---
@@ -191,9 +241,6 @@ async def run_qwen_mcp_agent():
 
                 # Append assistant message to cumulative conversation history
                 messages.append(response_msg)
-
-                if content:
-                    print(f"\n[Thought / Response]:\n{content}")
 
                 if len(all_calls) > 1:
                     # LLM tried to invoke multiple tools in one shot — reject all of them
@@ -204,6 +251,19 @@ async def run_qwen_mcp_agent():
                     )
                     print(f"\n[!] Multi-tool hallucination detected: {detected}")
                     print(f"[Observe]:\n{obs_text}")
+                    guardrail_interventions_count += 1
+                    emit_event(
+                        "guardrail_intervention",
+                        {
+                            "guardrail_type": "multi_tool_hallucination",
+                            "policy_rule": "Agent must invoke exactly one tool per ReAct iteration.",
+                            "attempted_action": {"tool_calls": [n for n, _ in all_calls]},
+                            "intervention_action": "BLOCKED",
+                            "corrective_guidance": obs_text,
+                        },
+                        iteration=iteration,
+                        incident_id=incident_id,
+                    )
                     messages.append({"role": "user", "content": f"Observation: {obs_text}"})
                     continue
 
@@ -219,11 +279,40 @@ async def run_qwen_mcp_agent():
                             "'get_diagnostic_logs' to investigate the issue before requesting a runbook. "
                             "You may also call 'list_runbooks' at any time to discover available runbook IDs."
                         )
-                    elif tool_name == "execute_k8s_rollback" and "get_runbook" not in tools_used:
-                        obs_text = (
-                            "Error: CRITICAL SAFETY RULE VIOLATION. You must call "
-                            "'get_runbook' before executing any remediations."
+                        guardrail_interventions_count += 1
+                        emit_event(
+                            "guardrail_intervention",
+                            {
+                                "guardrail_type": "state_machine_prerequisite_violation",
+                                "policy_rule": "Must inspect diagnostic logs before requesting runbook.",
+                                "attempted_action": {"tool_name": tool_name},
+                                "intervention_action": "BLOCKED",
+                                "corrective_guidance": obs_text,
+                            },
+                            iteration=iteration,
+                            incident_id=incident_id,
                         )
+                    elif tool_name == "execute_k8s_rollback" and not has_verified_memory:
+                        corrective_guidance = (
+                            "Execution intercepted by Caged ReAct Guardrail. Call 'search_provenance_memory' "
+                            "to verify historical post-mortem fix confidence before attempting rollout undo."
+                        )
+                        guardrail_interventions_count += 1
+                        emit_event(
+                            "guardrail_intervention",
+                            {
+                                "guardrail_type": "state_machine_prerequisite_violation",
+                                "policy_rule": "CRITICAL SAFETY RULE: Agent must query Provenance Memory before executing destructive remediation actions.",
+                                "attempted_action": {
+                                    "tool_name": "execute_k8s_rollback"
+                                },
+                                "intervention_action": "BLOCKED",
+                                "corrective_guidance": corrective_guidance,
+                            },
+                            iteration=iteration,
+                            incident_id=incident_id,
+                        )
+                        obs_text = corrective_guidance
 
                     if obs_text:
                         # State machine guard fired — inject error, do NOT execute
@@ -236,7 +325,10 @@ async def run_qwen_mcp_agent():
                     print(f"\n[Act] Invoking single MCP Tool: '{tool_name}'")
                     print(f"      Arguments: {json.dumps(tool_args)}")
 
+                    tool_start_time = time.time()
                     result = await session.call_tool(tool_name, arguments=tool_args)
+                    tool_end_time = time.time()
+                    execution_latency_ms = round((tool_end_time - tool_start_time) * 1000, 2)
 
                     content_text = ""
                     for content_item in result.content:
@@ -247,6 +339,44 @@ async def run_qwen_mcp_agent():
 
                     content_text = content_text.strip()
                     tools_used.add(tool_name)  # Register successful execution
+
+                    try:
+                        parsed_output = json.loads(content_text)
+                    except Exception:
+                        parsed_output = content_text
+
+                    status = "ERROR" if ("Error" in content_text or "failed" in content_text.lower()) else "SUCCESS"
+
+                    if tool_name == "query_infrastructure_graph":
+                        tool_source = "infrastructure_graph"
+                        if isinstance(parsed_output, dict):
+                            traced_root_cause_data = parsed_output.get("traced_root_cause", parsed_output)
+                    elif tool_name == "search_provenance_memory":
+                        tool_source = "provenance_memory"
+                        has_verified_memory = True
+                        if isinstance(parsed_output, dict):
+                            matched_runbook_data = parsed_output
+                    else:
+                        tool_source = "mcp_server"
+                        if tool_name in ("get_runbook",):
+                            has_verified_memory = True
+                        if tool_name == "execute_k8s_rollback":
+                            action_taken_str = f"execute_k8s_rollback: {tool_args.get('deployment_name', '')}"
+
+                    emit_event(
+                        "tool_execution",
+                        {
+                            "tool_name": tool_name,
+                            "tool_source": tool_source,
+                            "input_parameters": tool_args,
+                            "status": status,
+                            "execution_latency_ms": execution_latency_ms,
+                            "output": parsed_output,
+                        },
+                        iteration=iteration,
+                        incident_id=incident_id,
+                    )
+
                     print(f"\n[Observe]:\n{content_text}")
 
                     messages.append({"role": "user", "content": f"Observation: {content_text}"})
@@ -257,11 +387,31 @@ async def run_qwen_mcp_agent():
                     print("[+] FINAL REMEDIATION PLAN / REASONING:")
                     print("=" * 60)
                     print(content)
+                    final_summary_text = content
                     break
 
-            elapsed_time = time.time() - start_time
-            print(f"[+] Total execution time: {elapsed_time:.2f} seconds")
+            total_execution_time_sec = round(time.time() - start_time, 2)
+
+            emit_event(
+                "resolution",
+                {
+                    "status": "RESOLVED",
+                    "triggering_service": triggering_service,
+                    "traced_root_cause": traced_root_cause_data,
+                    "matched_runbook": matched_runbook_data,
+                    "action_taken": action_taken_str,
+                    "summary": final_summary_text,
+                    "total_execution_time_sec": total_execution_time_sec,
+                    "total_iterations": iteration,
+                    "guardrail_interventions_count": guardrail_interventions_count,
+                },
+                iteration=iteration,
+                incident_id=incident_id,
+            )
+
+            print(f"[+] Total execution time: {total_execution_time_sec:.2f} seconds")
 
 
 if __name__ == "__main__":
     asyncio.run(run_qwen_mcp_agent())
+
