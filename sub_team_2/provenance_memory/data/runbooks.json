@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Mock SovereignOps Historical Incident Runbooks & Post-Mortems Dataset"
+  },
+  "runbooks": [
+    {
+      "runbook_id": "RB-AUTH-001",
+      "title": "Auth Database Connection Pool Exhaustion Fix",
+      "error_signature": "HTTP 503 Service Unavailable - Auth DB Connection Timeout",
+      "historical_fix": "Increased Auth DB Max Connections pool size from 100 to 500 and restarted db-auth-cluster primary node.",
+      "provenance_confidence": 0.92,
+      "prior_success_count": 14
+    },
+    {
+      "runbook_id": "RB-PAY-002",
+      "title": "External Payment Gateway Timeout Mitigation",
+      "error_signature": "HTTP 504 Gateway Timeout - External Payment API Unreachable",
+      "historical_fix": "Switched payment-service traffic to secondary payment provider fallback endpoint.",
+      "provenance_confidence": 0.88,
+      "prior_success_count": 9
+    },
+    {
+      "runbook_id": "RB-ORD-003",
+      "title": "Orders Database Deadlock Resolution",
+      "error_signature": "SQL state 40P01 - Deadlock detected in db-orders-cluster",
+      "historical_fix": "Cancelled blocking transactions and deployed patch to reorder SQL lock acquisition.",
+      "provenance_confidence": 0.85,
+      "prior_success_count": 7
+    },
+    {
+      "runbook_id": "RB-USR-004",
+      "title": "User Service Cache Invalidation Failure",
+      "error_signature": "HTTP 500 Internal Error - Stale Cache in user-service",
+      "historical_fix": "Flushed Redis cache cluster and restarted user-service pods.",
+      "provenance_confidence": 0.79,
+      "prior_success_count": 5
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "SovereignOps IT Infrastructure Dependency Topology (8 nodes)",
+    "created_at": "2026-09-25"
+  },
+  "nodes": [
+    {
+      "node_id": "api-gateway-01",
+      "service_name": "API Gateway 01",
+      "node_type": "gateway",
+      "description": "Primary ingress proxy and router for external customer requests",
+      "criticality": {
+        "tier": 1,
+        "base_score": 0.95,
+        "sla_target": "99.99%"
+      }
+    },
+    {
+      "node_id": "auth-service",
+      "service_name": "Authentication Service",
+      "node_type": "microservice",
+      "description": "Handles token issuance, validation, and identity access control",
+      "criticality": {
+        "tier": 1,
+        "base_score": 0.9,
+        "sla_target": "99.95%"
+      }
+    },
+    {
+      "node_id": "user-service",
+      "service_name": "User Service",
+      "node_type": "microservice",
+      "description": "Manages user profile records, settings, and authorization details",
+      "criticality": {
+        "tier": 2,
+        "base_score": 0.8,
+        "sla_target": "99.9%"
+      }
+    },
+    {
+      "node_id": "payment-service",
+      "service_name": "Payment Service",
+      "node_type": "microservice",
+      "description": "Processes payment transactions, billing, and third-party gateway interactions",
+      "criticality": {
+        "tier": 1,
+        "base_score": 0.92,
+        "sla_target": "99.99%"
+      }
+    },
+    {
+      "node_id": "order-service",
+      "service_name": "Order Service",
+      "node_type": "microservice",
+      "description": "Manages order lifecycles, checkout flows, and order state transitions",
+      "criticality": {
+        "tier": 1,
+        "base_score": 0.88,
+        "sla_target": "99.9%"
+      }
+    },
+    {
+      "node_id": "db-auth-cluster",
+      "service_name": "Auth Database Cluster",
+      "node_type": "database",
+      "description": "Primary relational database cluster storing user credentials and session keys",
+      "criticality": {
+        "tier": 1,
+        "base_score": 0.95,
+        "sla_target": "99.99%"
+      }
+    },
+    {
+      "node_id": "db-orders-cluster",
+      "service_name": "Orders Database Cluster",
+      "node_type": "database",
+      "description": "Distributed database cluster storing order records and transactional state",
+      "criticality": {
+        "tier": 1,
+        "base_score": 0.9,
+        "sla_target": "99.9%"
+      }
+    },
+    {
+      "node_id": "external-payment-api",
+      "service_name": "External Payment Provider API",
+      "node_type": "external_api",
+      "description": "Third-party payment gateway integration endpoint for credit card clearing",
+      "criticality": {
+        "tier": 2,
+        "base_score": 0.85,
+        "sla_target": "99.5%"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "api-gateway-01",
+      "target": "auth-service",
+      "dependency_type": "http_call",
+      "weight": 1.0
+    },
+    {
+      "source": "api-gateway-01",
+      "target": "user-service",
+      "dependency_type": "http_call",
+      "weight": 1.0
+    },
+    {
+      "source": "api-gateway-01",
+      "target": "order-service",
+      "dependency_type": "http_call",
+      "weight": 1.0
+    },
+    {
+      "source": "auth-service",
+      "target": "db-auth-cluster",
+      "dependency_type": "db_connection",
+      "weight": 1.5
+    },
+    {
+      "source": "user-service",
+      "target": "auth-service",
+      "dependency_type": "grpc_call",
+      "weight": 1.1
+    },
+    {
+      "source": "user-service",
+      "target": "db-auth-cluster",
+      "dependency_type": "db_connection",
+      "weight": 2.0
+    },
+    {
+      "source": "order-service",
+      "target": "user-service",
+      "dependency_type": "http_call",
+      "weight": 1.2
+    },
+    {
+      "source": "order-service",
+      "target": "auth-service",
+      "dependency_type": "grpc_call",
+      "weight": 1.0
+    },
+    {
+      "source": "order-service",
+      "target": "payment-service",
+      "dependency_type": "http_call",
+      "weight": 1.4
+    },
+    {
+      "source": "order-service",
+      "target": "db-orders-cluster",
+      "dependency_type": "db_connection",
+      "weight": 1.8
+    },
+    {
+      "source": "payment-service",
+      "target": "external-payment-api",
+      "dependency_type": "external_http",
+      "weight": 3.5
+    },
+    {
+      "source": "payment-service",
+      "target": "db-orders-cluster",
+      "dependency_type": "db_connection",
+      "weight": 2.2
+    }
+  ]
+}

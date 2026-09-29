@@ -187,7 +187,7 @@ async def run_qwen_mcp_agent():
                     break
 
                 # --- GUARD 1: Multi-tool hallucination detection ---
-                all_calls = extract_all_tool_calls(response_msg)
+                all_calls = extract_all_tool_calls(response_msg)    
 
                 # Append assistant message to cumulative conversation history
                 messages.append(response_msg)
