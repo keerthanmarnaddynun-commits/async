@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   Lock,
@@ -8,9 +8,9 @@ import {
   ShieldCheck,
   Check,
   Copy,
-  AlertTriangle,
-  Zap,
 } from 'lucide-react';
+import { useMockSSE } from './hooks/useMockSSE';
+import { EventFeed } from './components/EventFeed';
 
 // Fallback incident data matching backend orchestrator schema
 const DEFAULT_INCIDENT = {
@@ -70,10 +70,7 @@ const DEFAULT_INCIDENT = {
 };
 
 export default function App() {
-  const [data, setData] = useState(DEFAULT_INCIDENT);
-  const [isLoading, setIsLoading] = useState(false);
-  const [bridgeStatus, setBridgeStatus] = useState('connecting'); // 'connected' | 'fallback'
-  const [lastFetched, setLastFetched] = useState(null);
+  const [data] = useState(DEFAULT_INCIDENT);
   const [copiedKey, setCopiedKey] = useState(null);
 
   // Cryptographic Authorization State
@@ -81,31 +78,8 @@ export default function App() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [authTimestamp, setAuthTimestamp] = useState(null);
 
-  // Fetch telemetry & triage output from FastAPI backend bridge
-  const fetchTriage = async (alertId = 'INC-8891') => {
-    setIsLoading(true);
-    const start = Date.now();
-    try {
-      const response = await fetch(`http://localhost:8000/api/triage/${alertId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const json = await response.json();
-      setData(json);
-      setBridgeStatus('connected');
-      setLastFetched(`${Date.now() - start}ms`);
-    } catch (err) {
-      console.warn('FastAPI bridge unreachable, using local enclave cache:', err.message);
-      setBridgeStatus('fallback');
-      setLastFetched('Enclave Cache');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTriage('INC-8891');
-  }, []);
+  // Mock SSE Simulator Hook
+  const { events, isRunning, isCompleted, triggerSimulation, resetSimulation } = useMockSSE();
 
   const handleAuthorize = () => {
     if (isAuthorized) return;
@@ -149,30 +123,28 @@ export default function App() {
             SOVEREIGNOPS
           </span>
           <span className="text-[10px] font-mono text-white/30 uppercase tracking-widest hidden sm:inline-block">
-            • AIR-GAPPED AUTHORIZATION VAULT
+            • CAGED REACT INCIDENT DASHBOARD
           </span>
         </div>
 
         <div className="flex items-center gap-4 text-xs font-mono">
-          <button
-            onClick={() => fetchTriage('INC-8891')}
-            disabled={isLoading}
-            className="text-white/40 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-amber-400' : ''}`} />
-            <span>{isLoading ? 'Re-evaluating...' : 'Re-run Inference'}</span>
-          </button>
-
-          <div className="h-3 w-px bg-white/10" />
-
           <div className="flex items-center gap-2 text-[10px] text-white/40">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                bridgeStatus === 'connected' ? 'bg-emerald-400 shadow-[0_0_8px_#10b981]' : 'bg-amber-400'
+                isRunning
+                  ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
+                  : isCompleted
+                  ? 'bg-emerald-400 shadow-[0_0_8px_#10b981]'
+                  : 'bg-white/30'
               }`}
             />
-            <span>{bridgeStatus === 'connected' ? 'CONNECTED :8000' : 'ENCLAVE CACHE'}</span>
-            {lastFetched && <span className="text-white/20">({lastFetched})</span>}
+            <span>
+              {isRunning
+                ? 'SIMULATING SSE STREAM...'
+                : isCompleted
+                ? 'SIMULATION RESOLVED'
+                : 'MOCK SSE ENGINE READY'}
+            </span>
           </div>
         </div>
       </header>
@@ -180,9 +152,9 @@ export default function App() {
       {/* ========================================================================= */}
       {/* 2. CINEMATIC SINGLE-PAGE HERO FLOW                                        */}
       {/* ========================================================================= */}
-      <main className="relative z-10 max-w-5xl mx-auto px-6 pt-36 pb-24 flex flex-col items-center text-center">
+      <main className="relative z-10 max-w-5xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center text-center">
         {/* Breadcrumb & Floating Micro-Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] font-mono tracking-widest uppercase text-white/40 mb-8">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] font-mono tracking-widest uppercase text-white/40 mb-6">
           <span>INCIDENTS</span>
           <span>/</span>
           <span className="text-white/80 font-bold">{alertData?.alert_id || 'INC-8891'}</span>
@@ -202,33 +174,50 @@ export default function App() {
           </span>
         </div>
 
-        {/* Hero Title (Apple Scale Typography) */}
-        <h1 className="text-6xl md:text-8xl font-bold tracking-tighter text-white/95 leading-tight max-w-4xl font-sans">
+        {/* Hero Title */}
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-white/95 leading-tight max-w-4xl font-sans">
           {alertData?.error_signature || 'HTTP 503 Service Unavailable'}
         </h1>
 
         {/* Root Cause Subtitle */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 font-mono text-sm text-white/50">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3 font-mono text-sm text-white/50">
           <span>Traced Fault Target:</span>
           <span className="text-amber-300 font-semibold px-3 py-1 rounded bg-amber-500/10 border border-amber-500/20">
             {rootCause?.node_id || 'auth-service'}
           </span>
           <span className="text-white/20">•</span>
-          <span>PageRank: <strong className="text-white">{rootCause?.criticality_pagerank_score ?? 0.87}</strong></span>
+          <span>
+            PageRank: <strong className="text-white">{rootCause?.criticality_pagerank_score ?? 0.87}</strong>
+          </span>
           <span className="text-white/20">•</span>
-          <span>Confidence: <strong className="text-emerald-400">{((provenance?.provenance_confidence ?? 0.94) * 100).toFixed(0)}%</strong></span>
+          <span>
+            Confidence:{' '}
+            <strong className="text-emerald-400">
+              {((provenance?.provenance_confidence ?? 0.94) * 100).toFixed(0)}%
+            </strong>
+          </span>
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. GHOST DATA STREAM (VOID LOG TERMINAL)                                  */}
+        {/* 3. EVENT-DRIVEN SSE FEED ORCHESTRATOR                                     */}
         {/* ========================================================================= */}
-        <div className="w-full max-w-3xl my-24 text-center">
+        <EventFeed
+          events={events}
+          isRunning={isRunning}
+          isCompleted={isCompleted}
+          onTrigger={triggerSimulation}
+          onReset={resetSimulation}
+        />
+
+        {/* ========================================================================= */}
+        {/* 4. GHOST DATA STREAM (VOID LOG TERMINAL)                                  */}
+        {/* ========================================================================= */}
+        <div className="w-full max-w-3xl my-12 text-center">
           <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-4 flex items-center justify-center gap-2">
             <Terminal className="w-3.5 h-3.5 text-white/40" />
             <span>DIAGNOSTIC LOG STREAM • $ {data?.diagnostic?.payload?.command || 'journalctl -u gateway-proxy -n 50'}</span>
           </div>
 
-          {/* Floating Void Log Lines (No Outer Card / Border Box) */}
           <div className="font-mono text-xs leading-relaxed space-y-2 text-center opacity-90 max-h-80 overflow-y-auto px-4 py-2">
             {data?.telemetry?.syslog
               ? data.telemetry.syslog.split('\n').map((line, idx) => {
@@ -255,21 +244,27 @@ export default function App() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. THE HERO INTERACTION: AIR-GAPPED CRYPTOGRAPHIC GATE                    */}
+        {/* 5. THE HERO INTERACTION: AIR-GAPPED CRYPTOGRAPHIC GATE                    */}
         {/* ========================================================================= */}
         <div className="w-full max-w-2xl mx-auto p-10 rounded-2xl bg-white/[0.02] border border-white/[0.08] backdrop-blur-3xl shadow-[0_0_80px_rgba(0,0,0,0.9)] text-center space-y-8 relative">
           <div className="flex items-center justify-between border-b border-white/[0.08] pb-4 text-xs font-mono">
             <div className="flex items-center gap-2 text-white/60">
               <Lock className="w-4 h-4 text-violet-400" />
-              <span className="font-bold tracking-wider uppercase text-white/90">Air-Gapped Cryptographic Gate</span>
+              <span className="font-bold tracking-wider uppercase text-white/90">
+                Air-Gapped Cryptographic Gate
+              </span>
             </div>
-            <span className="text-[10px] text-white/30 uppercase tracking-widest">ED25519-SIG-SOVEREIGN</span>
+            <span className="text-[10px] text-white/30 uppercase tracking-widest">
+              ED25519-SIG-SOVEREIGN
+            </span>
           </div>
 
           {/* Proposed Remediation Command Display */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-[10px] text-white/40 uppercase tracking-widest">Proposed Remediation Action</span>
+              <span className="text-[10px] text-white/40 uppercase tracking-widest">
+                Proposed Remediation Action
+              </span>
               <button
                 onClick={() =>
                   handleCopy(
@@ -309,12 +304,18 @@ export default function App() {
           {/* Provenance Details */}
           <div className="grid grid-cols-2 gap-4 text-xs font-mono text-center">
             <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-3">
-              <span className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">Runbook Match</span>
+              <span className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">
+                Runbook Match
+              </span>
               <span className="text-white font-semibold">{provenance?.runbook_id || 'RB-089'}</span>
             </div>
             <div className="bg-white/[0.02] border border-white/[0.06] rounded-lg p-3">
-              <span className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">Historical Successes</span>
-              <span className="text-emerald-400 font-semibold">{provenance?.prior_success_count || 12} executions</span>
+              <span className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">
+                Historical Successes
+              </span>
+              <span className="text-emerald-400 font-semibold">
+                {provenance?.prior_success_count || 12} executions
+              </span>
             </div>
           </div>
 
