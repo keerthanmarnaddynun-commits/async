@@ -13,3 +13,4 @@
 [AUDIT] Executed: kubectl rollout undo deployment/auth-service
 [AUDIT] Executed: kubectl rollout undo deployment/auth-service
 [AUDIT] Executed: kubectl rollout undo deployment/auth-service
+[AUDIT] Executed: kubectl rollout undo deployment/auth-service
